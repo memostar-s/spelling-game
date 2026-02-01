@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Spelling Practice</title>
+<style>
+  /* ─── Reset & Base ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-deep:    #0f172a;
+    --bg-card:    rgba(30, 41, 59, 0.75);
+    --bg-input:   #0f172a;
+    --border:     #334155;
+    --border-mid: #475569;
+    --text-main:  #f1f5f9;
+    --text-sub:   #94a3b8;
+    --text-dim:   #64748b;
+    --blue:       #3b82f6;
+    --blue-glow:  rgba(59,130,246,0.2);
+    --green:      #10b981;
+    --green-glow: rgba(16,185,129,0.15);
+    --purple:     #8b5cf6;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+  }
+
+  html, body {
+    min-height: 100%; height: 100%;
+    background: linear-gradient(145deg, var(--bg-deep) 0%, #1e1b4b 50%, var(--bg-deep) 100%);
+    color: var(--text-main);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+
+  /* ─── Decorative Blobs ─── */
+  .blob {
+    position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
+  }
+  .blob-1 {
+    top: -140px; left: -140px; width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(59,130,246,0.13), transparent 70%);
+  }
+  .blob-2 {
+    bottom: -120px; right: -120px; width: 340px; height: 340px;
+    background: radial-gradient(circle, rgba(139,92,246,0.11), transparent 70%);
+  }
+
+  /* ─── Layout ─── */
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 640px; margin: 0 auto;
+    padding: 20px 18px 40px;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px;
+  }
+  .header h1 {
+    font-size: 18px; font-weight: 600; letter-spacing: 0.5px;
+    color: var(--text-main);
+  }
+  .btn-wordlist {
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(30,41,59,0.6);
+    color: var(--text-sub); font-size: 13px; cursor: pointer;
+    font-family: inherit; transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-wordlist:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* ─── Progress ─── */
+  .progress-header {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--text-dim); margin-bottom: 6px;
+  }
+  .progress-bar-bg {
+    height: 4px; border-radius: 2px; background: #1e293b; margin-bottom: 22px;
+  }
+  .progress-bar-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, var(--blue), var(--purple));
+    width: 0%; transition: width 0.4s ease;
+  }
+
+  /* ─── Card ─── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 34px 24px 30px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+  }
+
+  /* ─── Meaning Badge ─── */
+  .meaning-badge {
+    display: inline-block;
+    padding: 6px 20px; border-radius: 20px;
+    background: rgba(59,130,246,0.15);
+    border: 1px solid rgba(59,130,246,0.3);
+    color: #60a5fa; font-size: 20px; font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  /* ─── Letter Boxes ─── */
+  .letters-row {
+    display: flex; justify-content: center; align-items: flex-end;
+    gap: 5px; flex-wrap: wrap;
+    padding: 22px 0 10px;
+  }
+  .letter-box {
+    width: 42px; height: 54px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    background: var(--bg-input);
+    border: 2px solid var(--border);
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .letter-box span {
+    font-size: 21px; font-weight: 700;
+    color: var(--text-main);
+    text-transform: lowercase;
+    transition: color 0.2s;
+  }
+  .letter-box .underline {
+    position: absolute; bottom: 6px;
+    left: 15%; right: 15%; height: 2px;
+    background: var(--border-mid); border-radius: 1px;
+  }
+
+  /* letter-box states */
+  .letter-box.revealed {
+    background: rgba(59,130,246,0.15);
+    border-color: var(--blue);
+    box-shadow: 0 0 12px var(--blue-glow);
+  }
+  .letter-box.revealed span { color: #60a5fa; }
+
+  .letter-box.filled {
+    background: rgba(16,185,129,0.12);
+    border-color: var(--green);
+    box-shadow: 0 0 12px var(--green-glow);
+  }
+  .letter-box.filled span { color: #34d399; }
+
+  .letter-box.wrong {
+    background: rgba(239,68,68,0.1);
+    border-color: var(--red);
+  }
+
+  /* ─── Status Messages ─── */
+  .msg {
+    width: 100%; border-radius: 12px;
+    padding: 12px 20px; text-align: center;
+    font-size: 15px; font-weight: 600;
+    margin-top: 10px; margin-bottom: 4px;
+  }
+  .msg-correct {
+    background: rgba(16,185,129,0.12);
+    border: 1px solid rgba(16,185,129,0.3);
+    color: #34d399;
+  }
+  .msg-warning {
+    background: transparent; border: none;
+    color: var(--amber); font-size: 13px; font-weight: 400;
+    margin-top: 6px;
+  }
+
+  /* ─── Buttons ─── */
+  .btn-row {
+    display: flex; justify-content: center;
+    gap: 10px; margin-top: 18px; flex-wrap: wrap;
+  }
+  .btn {
+    padding: 11px 24px; border-radius: 10px;
+    font-size: 14px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+    border: none; transition: opacity 0.2s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { transform: scale(0.95); }
+
+  .btn-hint {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+  }
+  .btn-hint:hover { background: rgba(245,158,11,0.18); }
+  .btn-hint:disabled {
+    background: rgba(30,41,59,0.4);
+    border-color: var(--border); color: var(--border-mid);
+    cursor: default;
+  }
+
+  .btn-skip {
+    background: rgba(30,41,59,0.4);
+    border: 1px solid var(--border-mid);
+    color: var(--text-sub);
+  }
+  .btn-skip:hover { border-color: var(--text-sub); }
+
+  .btn-next {
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    color: #fff; font-size: 16px; padding: 12px 38px;
+  }
+
+  /* ─── Instructions ─── */
+  .instructions {
+    margin-top: 22px; padding: 14px 18px; border-radius: 12px;
+    background: rgba(30,41,59,0.4);
+    border: 1px solid #1e293b;
+    text-align: center;
+  }
+  .instructions p {
+    color: var(--text-dim); font-size: 12.5px; line-height: 1.8; margin: 0;
+  }
+
+  /* ─── Mobile Virtual Keyboard ─── */
+  .vkb { display: none; }
+  @media (max-width: 600px) {
+    .vkb { display: flex; flex-direction: column; gap: 6px; margin-top: 20px; }
+  }
+  .vkb-row {
+    display: flex; justify-content: center; gap: 5px; flex-wrap: wrap;
+  }
+  .vkb-key {
+    width: 32px; height: 42px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(30,41,59,0.7);
+    border: 1px solid var(--border);
+    color: var(--text-main); font-size: 15px; font-weight: 600;
+    cursor: pointer; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, transform 0.1s;
+    font-family: inherit;
+  }
+  .vkb-key:active { background: rgba(59,130,246,0.35); transform: scale(0.9); }
+  .vkb-key.used { opacity: 0.35; }
+  .vkb-key.backspace { width: 52px; font-size: 18px; color: var(--amber); border-color: rgba(245,158,11,0.3); }
+  .vkb-key.backspace:active { background: rgba(245,158,11,0.2); }
+
+  /* ─── Modal Overlay ─── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,0.72);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 16px;
+  }
+  .modal {
+    background: #1e293b; border-radius: 20px;
+    padding: 28px 24px; width: 100%; max-width: 460px;
+    max-height: 80vh; overflow-y: auto;
+    border: 1px solid var(--border);
+    box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  .modal-header h2 { font-size: 20px; color: var(--text-main); }
+  .modal-close {
+    background: none; border: none;
+    color: var(--text-sub); font-size: 22px; cursor: pointer;
+  }
+  .modal-add-row {
+    display: flex; gap: 7px; margin-bottom: 18px;
+  }
+  .modal-add-row input {
+    flex: 1; padding: 10px 13px; border-radius: 9px;
+    border: 1px solid var(--border-mid);
+    background: var(--bg-input); color: var(--text-main);
+    font-size: 14px; font-family: inherit; outline: none;
+    transition: border-color 0.2s;
+  }
+  .modal-add-row input:focus { border-color: var(--blue); }
+  .modal-add-row input::placeholder { color: var(--text-dim); }
+  .btn-add {
+    padding: 10px 17px; border-radius: 9px; border: none;
+    background: var(--green); color: #fff;
+    font-size: 20px; font-weight: 700; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-add:hover { background: #059669; }
+
+  .word-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 13px; border-radius: 9px;
+    background: var(--bg-input); border: 1px solid var(--border);
+    margin-bottom: 7px;
+  }
+  .word-item .w-word { color: #60a5fa; font-weight: 700; font-size: 15px; }
+  .word-item .w-meaning { color: var(--text-dim); font-size: 14px; margin-left: 10px; }
+  .btn-del {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 17px; cursor: pointer; transition: color 0.2s; padding: 2px 6px;
+  }
+  .btn-del:hover { color: var(--red); }
+
+  .modal-footer {
+    display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 22px;
+  }
+  .save-hint {
+    font-size: 11.5px; color: var(--green); margin-right: auto;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .save-hint.visible { opacity: 1; }
+  .btn-cancel {
+    padding: 9px 20px; border-radius: 9px;
+    border: 1px solid var(--border-mid);
+    background: transparent; color: var(--text-sub);
+    font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .btn-save {
+    padding: 9px 20px; border-radius: 9px; border: none;
+    background: var(--blue); color: #fff;
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+
+  /* ─── End Screen ─── */
+  .end-screen {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 20px 0;
+  }
+  .end-emoji { font-size: 58px; margin-bottom: 14px; }
+  .end-screen h2 { font-size: 26px; margin-bottom: 6px; }
+  .end-pct { color: #60a5fa; font-size: 34px; font-weight: 700; }
+  .end-stats {
+    display: flex; gap: 40px; margin: 18px 0 28px;
+  }
+  .end-stat-val { font-size: 26px; font-weight: 700; }
+  .end-stat-label { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .btn-restart {
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    color: #fff; padding: 12px 38px; border-radius: 12px;
+    border: none; font-size: 16px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+
+  /* ─── Confetti ─── */
+  .confetti-wrap {
+    position: fixed; inset: 0; pointer-events: none; z-index: 50;
+  }
+  .confetti-piece {
+    position: absolute; top: -24px;
+    animation: confettiFall 2.1s ease-in forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg);   opacity: 1; }
+    100% { transform: translateY(105vh) rotate(780deg); opacity: 0; }
+  }
+
+  /* ─── Responsive Tweaks ─── */
+  @media (max-width: 420px) {
+    .letter-box { width: 34px; height: 46px; border-radius: 8px; }
+    .letter-box span { font-size: 18px; }
+    .meaning-badge { font-size: 18px; padding: 5px 16px; }
+    .card { padding: 26px 16px 24px; border-radius: 18px; }
+    .vkb-key { width: 29px; height: 39px; font-size: 14px; }
+    .vkb-key.backspace { width: 46px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="confetti-wrap" id="confetti"></div>
+
+<div class="wrapper" id="app"></div>
+
+<script>
+// ─── State ───
+const DEFAULT_WORDS = [
+  { word: "player",    meaning: "球員" },
+  { word: "computer",  meaning: "電腦" },
+  { word: "beautiful", meaning: "漂亮的" },
+  { word: "elephant",  meaning: "大象" },
+  { word: "language",  meaning: "語言" },
+  { word: "knowledge", meaning: "知識" },
+  { word: "practice",  meaning: "練習" },
+  { word: "sentence",  meaning: "句子" },
+];
+
+// ─── localStorage 儲存/讀取 ───
+const STORAGE_KEY = "spelling-tool-words";
+
+function loadWords() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return DEFAULT_WORDS.map(w => ({ ...w }));
+}
+
+function saveWords() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
+  } catch (e) {}
+}
+
+let words = loadWords();
+
+let order = [];
+let idx = 0;
+let revealed = [];
+let userInput = [];
+let wrongLetters = [];
+let hintUsed = false;
+let status = "playing"; // playing | correct | finished
+let score = { correct: 0, wrong: 0 };
+let showManager = false;
+
+// ─── Manager temp state ───
+let managerWords = [];
+
+// ─── Helpers ───
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function currentWord() {
+  return words[order[idx]] || words[0];
+}
+
+function initRound() {
+  const w = currentWord().word;
+  revealed = [0];
+  userInput = Array(w.length).fill("");
+  wrongLetters = [];
+  hintUsed = false;
+  status = "playing";
+  render();
+}
+
+function startGame() {
+  order = shuffle(words.map((_, i) => i));
+  idx = 0;
+  score = { correct: 0, wrong: 0 };
+  initRound();
+}
+
+// ─── Game Logic ───
+function getActiveSlot() {
+  const w = currentWord().word;
+  for (let i = 0; i < w.length; i++) {
+    if (!revealed.includes(i) && !userInput[i]) return i;
+  }
+  return -1;
+}
+
+function handleLetter(key) {
+  if (status !== "playing") return;
+  const w = currentWord().word;
+  const slot = getActiveSlot();
+  if (slot === -1) return;
+
+  userInput[slot] = key;
+
+  if (w[slot] === key) {
+    // Correct letter – check completion
+    const allFilled = userInput.every((v, i) => revealed.includes(i) || v !== "");
+    if (allFilled) {
+      status = "correct";
+      score.correct++;
+      fireConfetti();
+    }
+  } else {
+    // Wrong
+    wrongLetters.push(slot);
+    if (wrongLetters.length >= 3) {
+      revealed.push(slot);
+      userInput[slot] = "";
+      wrongLetters = [];
+    }
+  }
+  render();
+}
+
+function handleBackspace() {
+  if (status !== "playing") return;
+  for (let i = userInput.length - 1; i >= 0; i--) {
+    if (!revealed.includes(i) && userInput[i]) {
+      userInput[i] = "";
+      break;
+    }
+  }
+  render();
+}
+
+function giveHint() {
+  if (hintUsed || status !== "playing") return;
+  const w = currentWord().word;
+  for (let i = 0; i < w.length; i++) {
+    if (!revealed.includes(i)) {
+      revealed.push(i);
+      hintUsed = true;
+      break;
+    }
+  }
+  render();
+}
+
+function skipWord() {
+  score.wrong++;
+  goNext();
+}
+
+function goNext() {
+  if (idx + 1 >= order.length) {
+    status = "finished";
+    render();
+  } else {
+    idx++;
+    initRound();
+  }
+}
+
+// ─── Confetti ───
+function fireConfetti() {
+  const container = document.getElementById("confetti");
+  container.innerHTML = "";
+  const colors = ["#f59e0b","#10b981","#3b82f6","#ef4444","#8b5cf6","#ec4899"];
+  for (let i = 0; i < 44; i++) {
+    const el = document.createElement("div");
+    el.className = "confetti-piece";
+    const size = 6 + Math.random() * 9;
+    el.style.left = (Math.random() * 100) + "%";
+    el.style.width = size + "px";
+    el.style.height = size + "px";
+    el.style.background = colors[i % colors.length];
+    el.style.borderRadius = (i % 3 === 0) ? "50%" : "2px";
+    el.style.animationDelay = (Math.random() * 0.3) + "s";
+    container.appendChild(el);
+  }
+  setTimeout(() => { container.innerHTML = ""; }, 2400);
+}
+
+// ─── Word Manager ───
+function openManager() {
+  managerWords = words.map(w => ({ ...w }));
+  showManager = true;
+  render();
+}
+function closeManager() {
+  showManager = false;
+  render();
+}
+function saveManager() {
+  if (managerWords.length === 0) return;
+  words = managerWords.map(w => ({ ...w }));
+  saveWords(); // ← 儲存到 localStorage
+
+  // 顯示確認訊息後關閉
+  const hint = document.querySelector(".save-hint");
+  if (hint) hint.classList.add("visible");
+  setTimeout(() => {
+    showManager = false;
+    startGame();
+  }, 800);
+}
+function managerAdd() {
+  const wInput = document.getElementById("m-word");
+  const mInput = document.getElementById("m-meaning");
+  const w = wInput.value.trim().toLowerCase();
+  const m = mInput.value.trim();
+  if (w && m && !managerWords.find(x => x.word === w)) {
+    managerWords.push({ word: w, meaning: m });
+    wInput.value = "";
+    mInput.value = "";
+    render();
+    // Re-focus word input after re-render
+    setTimeout(() => { document.getElementById("m-word")?.focus(); }, 40);
+  }
+}
+function managerRemove(i) {
+  managerWords.splice(i, 1);
+  render();
+}
+
+// ─── Keyboard Listener ───
+document.addEventListener("keydown", (e) => {
+  if (showManager) return;
+  const key = e.key.toLowerCase();
+  if (/^[a-z]$/.test(key)) { e.preventDefault(); handleLetter(key); }
+  if (e.key === "Backspace") { e.preventDefault(); handleBackspace(); }
+});
+
+// ─── Render ───
+function render() {
+  const app = document.getElementById("app");
+
+  // ─── END SCREEN ───
+  if (status === "finished") {
+    const total = score.correct + score.wrong;
+    const pct = Math.round((score.correct / total) * 100);
+    const emoji = pct >= 70 ? "🎉" : pct >= 40 ? "👍" : "📚";
+    app.innerHTML = `
+      <div class="end-screen">
+        <div class="end-emoji">${emoji}</div>
+        <h2>練習完成！</h2>
+        <p style="color:var(--text-sub);margin-bottom:4px;">正確率</p>
+        <p class="end-pct">${pct}%</p>
+        <div class="end-stats">
+          <div><div class="end-stat-val" style="color:var(--green)">${score.correct}</div><div class="end-stat-label">正確</div></div>
+          <div><div class="end-stat-val" style="color:var(--red)">${score.wrong}</div><div class="end-stat-label">錯誤/跳過</div></div>
+        </div>
+        <button class="btn-restart" onclick="startGame()">再來一輪</button>
+      </div>`;
+    return;
+  }
+
+  // ─── PLAYING / CORRECT ───
+  const w = currentWord();
+  const word = w.word;
+  const meaning = w.meaning;
+  const progress = (idx / order.length) * 100;
+
+  // Letter boxes HTML
+  let lettersHtml = "";
+  for (let i = 0; i < word.length; i++) {
+    const isRevealed = revealed.includes(i);
+    const hasUser   = !!userInput[i];
+    const isWrong   = wrongLetters.includes(i);
+    let cls = "letter-box";
+    if (isRevealed) cls += " revealed";
+    else if (hasUser) cls += " filled";
+    else if (isWrong) cls += " wrong";
+
+    const display = isRevealed ? word[i] : (userInput[i] || "");
+    const underline = (!isRevealed && !hasUser) ? '<div class="underline"></div>' : "";
+    lettersHtml += `<div class="${cls}"><span>${display}</span>${underline}</div>`;
+  }
+
+  // Status / warning
+  let statusHtml = "";
+  if (status === "correct") {
+    statusHtml = `<div class="msg msg-correct">🎉 正確！單詞是 "${word}"</div>`;
+  } else if (wrongLetters.length > 0) {
+    statusHtml = `<div class="msg msg-warning">⚠️ 錯誤 ${wrongLetters.length}/3 次後將自動揭露該字母</div>`;
+  }
+
+  // Buttons
+  let btnsHtml = "";
+  if (status === "playing") {
+    btnsHtml = `
+      <button class="btn btn-hint" ${hintUsed ? 'disabled' : ''} onclick="giveHint()">💡 提示</button>
+      <button class="btn btn-skip" onclick="skipWord()">⏭ 跳過</button>`;
+  } else if (status === "correct") {
+    btnsHtml = `<button class="btn btn-next" onclick="goNext()">下一題 →</button>`;
+  }
+
+  // Virtual keyboard (mobile)
+  const rows = [
+    ["q","w","e","r","t","y","u","i","o","p"],
+    ["a","s","d","f","g","h","j","k","l"],
+    ["z","x","c","v","b","n","m","⌫"]
+  ];
+  let vkbHtml = '<div class="vkb">';
+  rows.forEach(row => {
+    vkbHtml += '<div class="vkb-row">';
+    row.forEach(k => {
+      if (k === "⌫") {
+        vkbHtml += `<div class="vkb-key backspace" onclick="handleBackspace(); render();">⌫</div>`;
+      } else {
+        vkbHtml += `<div class="vkb-key" onclick="handleLetter('${k}'); ">` + k + `</div>`;
+      }
+    });
+    vkbHtml += '</div>';
+  });
+  vkbHtml += '</div>';
+
+  // Manager modal
+  let modalHtml = "";
+  if (showManager) {
+    let itemsHtml = managerWords.map((item, i) =>
+      `<div class="word-item">
+        <div><span class="w-word">${item.word}</span><span class="w-meaning">${item.meaning}</span></div>
+        <button class="btn-del" onclick="managerRemove(${i})">🗑</button>
+      </div>`
+    ).join("");
+
+    modalHtml = `
+      <div class="modal-overlay">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>📚 單字管理</h2>
+            <button class="modal-close" onclick="closeManager()">✕</button>
+          </div>
+          <div class="modal-add-row">
+            <input id="m-word" type="text" placeholder="英文單詞" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              onkeydown="if(event.key==='Enter')managerAdd()" />
+            <input id="m-meaning" type="text" placeholder="中文意思" autocomplete="off"
+              onkeydown="if(event.key==='Enter')managerAdd()" />
+            <button class="btn-add" onclick="managerAdd()">+</button>
+          </div>
+          ${itemsHtml}
+          <div class="modal-footer">
+            <span class="save-hint">✅ 已儲存，下次開啟仍會保留</span>
+            <button class="btn-cancel" onclick="closeManager()">取消</button>
+            <button class="btn-save" onclick="saveManager()">保存列表</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  app.innerHTML = `
+    <!-- Header -->
+    <div class="header">
+      <h1>✏️ Spelling Practice</h1>
+      <button class="btn-wordlist" onclick="openManager()">📚 單字列表</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-header">
+      <span>第 ${idx + 1} / ${order.length} 題</span>
+      <span>✅ ${score.correct} &nbsp; ❌ ${score.wrong}</span>
+    </div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${progress}%"></div></div>
+
+    <!-- Card -->
+    <div class="card">
+      <div class="meaning-badge">${meaning}</div>
+      <div class="letters-row">${lettersHtml}</div>
+      ${statusHtml}
+      <div class="btn-row">${btnsHtml}</div>
+      ${vkbHtml}
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions">
+      <p>
+        電腦：直接用鍵盤輸入字母<br>
+        手機：使用下方虛擬鍵盤<br>
+        錯誤 3 次後自動揭露該位置 · 點「單字列表」可新增/刪除單詞
+      </p>
+    </div>
+
+    <!-- Manager Modal -->
+    ${modalHtml}
+  `;
+
+  // Auto-focus manager input after render
+  if (showManager) {
+    setTimeout(() => { document.getElementById("m-word")?.focus(); }, 50);
+  }
+}
+
+// ─── Init ───
+startGame();
+</script>
+</body>
+</html>
