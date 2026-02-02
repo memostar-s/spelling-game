@@ -344,7 +344,7 @@ const DEFAULT_DATA = {
         {word:"make up for",meaning:"彌補⋯⋯",selected:false},
         {word:"born",meaning:"天生的",selected:false},
         {word:"perfect",meaning:"完美的",selected:false},
-        {word:"three-pointer",meaning:"三分球",selected:false},
+        {word:"three pointer",meaning:"三分球",selected:false},
         {word:"hard work",meaning:"勤奮努力",selected:false},
         {word:"both",meaning:"兩者（都）",selected:false},
       ]
@@ -382,12 +382,12 @@ const DEFAULT_DATA = {
         {word:"minute",meaning:"分鐘",selected:false},
         {word:"answer",meaning:"回答；答案",selected:false},
         {word:"question",meaning:"問題",selected:false},
-        {word:"trouble",meaning:"困難；麼煩",selected:false},
+        {word:"trouble",meaning:"困難；麻煩",selected:false},
         {word:"life",meaning:"生活；生命",selected:false},
         {word:"love",meaning:"愛",selected:false},
         {word:"real",meaning:"真實的",selected:false},
         {word:"walk",meaning:"遛（寵物）",selected:false},
-        {word:"I cant help it.",meaning:"我沒辦法；我控制不了",selected:false},
+        {word:"I can't help it.",meaning:"我沒辦法；我控制不了",selected:false},
         {word:"then",meaning:"然後",selected:false},
         {word:"too",meaning:"太⋯⋯",selected:false},
         {word:"How often",meaning:"多常⋯⋯？",selected:false},
@@ -428,7 +428,7 @@ let quizWords   = [];   // the words for current quiz (shuffled)
 let quizIdx     = 0;
 let revealed    = [];
 let userInput   = [];
-let wrongLetters= [];
+let wrongCounts = {};   // {index: errorCount} tracks errors per position
 let hintUsed    = false;
 let quizStatus  = "playing"; // playing | correct
 let score       = { correct:0, wrong:0 };
@@ -616,7 +616,18 @@ function toggleSelect(fid, idx) {
   const folder = data.folders.find(f => f.id === fid);
   folder.words[idx].selected = !folder.words[idx].selected;
   saveData();
+  
+  // 記住單字列表的滾動位置
+  const wordList = document.querySelector('.word-list');
+  const scrollTop = wordList ? wordList.scrollTop : 0;
+  
   renderFolder();
+  
+  // 恢復滾動位置
+  requestAnimationFrame(() => {
+    const newWordList = document.querySelector('.word-list');
+    if (newWordList) newWordList.scrollTop = scrollTop;
+  });
 }
 
 function toggleAll(fid) {
@@ -624,7 +635,18 @@ function toggleAll(fid) {
   const allSelected = folder.words.every(w => w.selected);
   folder.words.forEach(w => w.selected = !allSelected);
   saveData();
+  
+  // 記住單字列表的滾動位置
+  const wordList = document.querySelector('.word-list');
+  const scrollTop = wordList ? wordList.scrollTop : 0;
+  
   renderFolder();
+  
+  // 恢復滾動位置
+  requestAnimationFrame(() => {
+    const newWordList = document.querySelector('.word-list');
+    if (newWordList) newWordList.scrollTop = scrollTop;
+  });
 }
 
 function goHome() { screen="home"; renderHome(); }
@@ -650,7 +672,7 @@ function initQuizRound() {
     if (i === 0 || w[i] === " ") revealed.push(i);
   }
   userInput    = Array(w.length).fill("");
-  wrongLetters = [];
+  wrongCounts  = {}; // 記錄每個位置的錯誤次數 {index: count}
   hintUsed     = false;
   quizStatus   = "playing";
   renderQuiz();
@@ -667,13 +689,24 @@ function handleLetter(key) {
   const w = quizWords[quizIdx].word;
   const slot = getActiveSlot();
   if (slot === -1) return;
+  
   userInput[slot] = key;
+  
   if (w[slot] === key) {
-    const allFilled = userInput.every((v,i) => revealed.includes(i) || v !== "");
-    if (allFilled) { quizStatus="correct"; score.correct++; fireConfetti(); }
+    // 正確字母 - 清除該位置的錯誤計數
+    delete wrongCounts[slot];
+    // 檢查是否全部正確
+    const allCorrect = userInput.every((v,i) => revealed.includes(i) || v === w[i]);
+    if (allCorrect) { quizStatus="correct"; score.correct++; fireConfetti(); }
   } else {
-    wrongLetters.push(slot);
-    if (wrongLetters.length >= 3) { revealed.push(slot); userInput[slot]=""; wrongLetters=[]; }
+    // 錯誤字母 - 累計錯誤次數
+    wrongCounts[slot] = (wrongCounts[slot] || 0) + 1;
+    if (wrongCounts[slot] >= 3) {
+      // 第 3 次錯誤：揭露正確答案
+      revealed.push(slot);
+      userInput[slot] = "";
+      delete wrongCounts[slot];
+    }
   }
   renderQuiz();
 }
@@ -681,7 +714,12 @@ function handleLetter(key) {
 function handleBackspace() {
   if (quizStatus !== "playing") return;
   for (let i=userInput.length-1; i>=0; i--) {
-    if (!revealed.includes(i) && userInput[i]) { userInput[i]=""; break; }
+    if (!revealed.includes(i) && userInput[i]) {
+      userInput[i]="";
+      // 清除該位置的錯誤計數
+      delete wrongCounts[i];
+      break;
+    }
   }
   renderQuiz();
 }
@@ -714,11 +752,12 @@ function renderQuiz() {
     }
     const isRevealed = revealed.includes(i);
     const hasUser    = !!userInput[i];
-    const isWrong    = wrongLetters.includes(i);
+    const isWrong    = wrongCounts[i] > 0; // 有錯誤計數就標紅
     let cls = "letter-box";
-    if      (isRevealed) cls += " revealed";
+    // 優先順序：錯誤 > 填入 > 已揭露
+    if      (isWrong)    cls += " wrong";
+    else if (isRevealed) cls += " revealed";
     else if (hasUser)    cls += " filled";
-    else if (isWrong)    cls += " wrong";
     const display  = isRevealed ? word[i] : (userInput[i] || "");
     const underline = (!isRevealed && !hasUser) ? '<div class="underline"></div>' : "";
     lettersHtml += `<div class="${cls}"><span>${display}</span>${underline}</div>`;
@@ -726,7 +765,10 @@ function renderQuiz() {
 
   let statusHtml = "";
   if (quizStatus === "correct") statusHtml = `<div class="msg msg-correct">🎉 正確！單詞是 "${word}"</div>`;
-  else if (wrongLetters.length > 0) statusHtml = `<div class="msg msg-warning">⚠️ 錯誤 ${wrongLetters.length}/3 次後將自動揭露該字母</div>`;
+  else if (Object.keys(wrongCounts).length > 0) {
+    const totalWrong = Object.values(wrongCounts).reduce((a,b) => a+b, 0);
+    statusHtml = `<div class="msg msg-warning">⚠️ 該位置錯誤 ${Math.max(...Object.values(wrongCounts))}/3 次後將自動揭露</div>`;
+  }
 
   let btnsHtml = "";
   if (quizStatus === "playing") btnsHtml = `
